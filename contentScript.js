@@ -19,8 +19,8 @@ function createTimerUI(teamMembers) {
     // Create an iframe to host the timer UI
     timerFrame = document.createElement('iframe');
     timerFrame.style.position = 'fixed';
-    timerFrame.style.top = '20px';
-    timerFrame.style.right = '20px';
+    timerFrame.style.top = '0px';
+    timerFrame.style.left = '0px';
     timerFrame.style.width = '300px';
     timerFrame.style.height = '400px';
     timerFrame.style.border = '1px solid #ccc';
@@ -47,16 +47,21 @@ function createTimerUI(teamMembers) {
 
 // Function to make the iframe draggable
 function makeFrameDraggable(frame) {
-    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    let offsetX = 0;
+    let offsetY = 0;
     let isDragging = false;
-    let dragArea = null;
 
     // Listen for messages from the iframe
     window.addEventListener('message', function (event) {
         if (event.data.action === 'dragStart' && event.data.source === 'standup-timer-extension') {
             isDragging = true;
-            pos3 = event.data.clientX;
-            pos4 = event.data.clientY;
+
+            // Calculate the offset between mouse position and iframe position
+            const frameRect = frame.getBoundingClientRect();
+            offsetX = event.data.clientX - frameRect.left;
+            offsetY = event.data.clientY - frameRect.top;
+
+            // Add event listeners to the document
             document.addEventListener('mousemove', elementDrag);
             document.addEventListener('mouseup', closeDragElement);
         }
@@ -66,15 +71,18 @@ function makeFrameDraggable(frame) {
         if (!isDragging) return;
 
         e.preventDefault();
-        // Calculate new position
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
 
-        // Set the iframe's new position
-        frame.style.top = (frame.offsetTop - pos2) + "px";
-        frame.style.left = (frame.offsetLeft - pos1) + "px";
+        // Calculate the new position based on the mouse position minus the offset
+        const newX = e.clientX - offsetX;
+        const newY = e.clientY - offsetY;
+
+        // Make sure the frame stays within viewport bounds
+        const maxX = window.innerWidth - frame.offsetWidth;
+        const maxY = window.innerHeight - frame.offsetHeight;
+
+        // Set new position with bounds checking
+        frame.style.left = Math.min(Math.max(0, newX), maxX) + 'px';
+        frame.style.top = Math.min(Math.max(0, newY), maxY) + 'px';
     }
 
     function closeDragElement() {
