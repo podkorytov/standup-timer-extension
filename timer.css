@@ -1,33 +1,16 @@
+/* timer.css */
 body {
     font-family: Arial, sans-serif;
     margin: 0;
-    padding: 0;
+    padding: 10px;
     overflow: hidden;
     background-color: white;
 }
 
 .timer-container {
-    padding: 10px;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-}
-
-.drag-handle {
-    padding: 8px;
-    background-color: #4285f4;
-    color: white;
-    font-weight: bold;
-    cursor: move;
-    border-radius: 4px 4px 0 0;
-    user-select: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.drag-indicator {
-    cursor: move;
+    height: 100%;
 }
 
 #team-members-container {
@@ -36,6 +19,7 @@ body {
     flex-grow: 1;
     overflow-y: auto;
     padding: 5px 0;
+    max-height: 330px;
 }
 
 .team-member {
@@ -95,7 +79,7 @@ body {
 }
 
 #endMeeting {
-    margin-bottom: 20px;
+    margin-top: 10px;
     background-color: #ea4335;
     color: white;
     border: none;

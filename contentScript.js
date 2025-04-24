@@ -16,21 +16,53 @@ function createTimerUI(teamMembers) {
         timerFrame.remove();
     }
 
-    // Create an iframe to host the timer UI
+    // Create a container for the timer that will handle drag events
+    const container = document.createElement('div');
+    container.id = 'standup-timer-container';
+    container.style.position = 'fixed';
+    container.style.top = '20px';
+    container.style.right = '20px';
+    container.style.width = '300px';
+    container.style.zIndex = '9999';
+    container.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+    container.style.borderRadius = '5px';
+    container.style.backgroundColor = 'white';
+    container.style.overflow = 'hidden';
+
+    // Create a drag handle at the top of the container
+    const dragHandle = document.createElement('div');
+    dragHandle.style.width = '100%';
+    dragHandle.style.height = '30px';
+    dragHandle.style.backgroundColor = '#4285f4';
+    dragHandle.style.cursor = 'move';
+    dragHandle.style.color = 'white';
+    dragHandle.style.display = 'flex';
+    dragHandle.style.alignItems = 'center';
+    dragHandle.style.justifyContent = 'space-between';
+    dragHandle.style.padding = '0 10px';
+    dragHandle.style.fontFamily = 'Arial, sans-serif';
+    dragHandle.style.fontSize = '14px';
+    dragHandle.style.fontWeight = 'bold';
+    dragHandle.style.userSelect = 'none';
+    dragHandle.textContent = 'Standup Timer';
+
+    // Add drag handle icon
+    const dragIcon = document.createElement('span');
+    dragIcon.textContent = '☰';
+    dragIcon.style.cursor = 'move';
+    dragHandle.appendChild(dragIcon);
+
+    // Create the iframe to host the timer UI
     timerFrame = document.createElement('iframe');
-    timerFrame.style.position = 'fixed';
-    timerFrame.style.top = '0px';
-    timerFrame.style.left = '0px';
-    timerFrame.style.width = '300px';
-    timerFrame.style.height = '400px';
-    timerFrame.style.border = '1px solid #ccc';
-    timerFrame.style.borderRadius = '5px';
-    timerFrame.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
-    timerFrame.style.zIndex = '9999';
-    timerFrame.style.backgroundColor = 'white';
+    timerFrame.style.width = '100%';
+    timerFrame.style.height = '370px';
+    timerFrame.style.border = 'none';
     timerFrame.src = chrome.runtime.getURL('timer.html');
 
-    document.body.appendChild(timerFrame);
+    // Assemble the container
+    container.appendChild(dragHandle);
+    container.appendChild(timerFrame);
+    document.body.appendChild(container);
 
     // Wait for iframe to load, then send team members data
     timerFrame.onload = function () {
@@ -41,53 +73,61 @@ function createTimerUI(teamMembers) {
         }, '*');
     };
 
-    // Make the iframe draggable
-    makeFrameDraggable(timerFrame);
-}
-
-// Function to make the iframe draggable
-function makeFrameDraggable(frame) {
-    let offsetX = 0;
-    let offsetY = 0;
+    // Make the container draggable
     let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
 
-    // Listen for messages from the iframe
-    window.addEventListener('message', function (event) {
-        if (event.data.action === 'dragStart' && event.data.source === 'standup-timer-extension') {
-            isDragging = true;
+    // Handle drag start
+    dragHandle.addEventListener("mousedown", dragStart, false);
 
-            // Calculate the offset between mouse position and iframe position
-            const frameRect = frame.getBoundingClientRect();
-            offsetX = event.data.clientX - frameRect.left;
-            offsetY = event.data.clientY - frameRect.top;
+    // Handle drag events
+    document.addEventListener("mousemove", drag, false);
+    document.addEventListener("mouseup", dragEnd, false);
 
-            // Add event listeners to the document
-            document.addEventListener('mousemove', elementDrag);
-            document.addEventListener('mouseup', closeDragElement);
-        }
-    });
+    function dragStart(e) {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
 
-    function elementDrag(e) {
-        if (!isDragging) return;
-
+        isDragging = true;
         e.preventDefault();
-
-        // Calculate the new position based on the mouse position minus the offset
-        const newX = e.clientX - offsetX;
-        const newY = e.clientY - offsetY;
-
-        // Make sure the frame stays within viewport bounds
-        const maxX = window.innerWidth - frame.offsetWidth;
-        const maxY = window.innerHeight - frame.offsetHeight;
-
-        // Set new position with bounds checking
-        frame.style.left = Math.min(Math.max(0, newX), maxX) + 'px';
-        frame.style.top = Math.min(Math.max(0, newY), maxY) + 'px';
     }
 
-    function closeDragElement() {
+    function drag(e) {
+        if (isDragging) {
+            e.preventDefault();
+
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+
+            xOffset = currentX;
+            yOffset = currentY;
+
+            // Apply new position
+            setTranslate(currentX, currentY, container);
+        }
+    }
+
+    function dragEnd(e) {
+        initialX = currentX;
+        initialY = currentY;
+
         isDragging = false;
-        document.removeEventListener('mousemove', elementDrag);
-        document.removeEventListener('mouseup', closeDragElement);
+    }
+
+    function setTranslate(xPos, yPos, el) {
+        // Ensure container stays within viewport bounds
+        const containerRect = el.getBoundingClientRect();
+        const maxX = window.innerWidth - containerRect.width;
+        const maxY = window.innerHeight - containerRect.height;
+
+        xPos = Math.min(Math.max(0, xPos), maxX);
+        yPos = Math.min(Math.max(0, yPos), maxY);
+
+        el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
     }
 }

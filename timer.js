@@ -1,3 +1,4 @@
+// timer.js
 let teamMembers = [];
 let activeTimerId = null;
 let timers = {};
@@ -12,23 +13,6 @@ window.addEventListener('message', function (event) {
             initializeTimers();
         }
     }
-});
-
-// Make the window draggable
-document.addEventListener('DOMContentLoaded', function () {
-    const dragHandle = document.querySelector('.drag-handle');
-
-    dragHandle.addEventListener('mousedown', function (e) {
-        // Send drag start event to parent window
-        window.parent.postMessage({
-            action: 'dragStart',
-            clientX: e.clientX,
-            clientY: e.clientY,
-            source: 'standup-timer-extension'
-        }, '*');
-
-        e.preventDefault();
-    });
 });
 
 // Initialize timers
