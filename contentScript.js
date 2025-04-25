@@ -1,4 +1,3 @@
-// contentScript.js
 let timerFrame = null;
 let timerContainer = null;
 
@@ -57,7 +56,7 @@ function createTimerUI(teamMembers) {
     // Create the iframe to host the timer UI
     timerFrame = document.createElement('iframe');
     timerFrame.style.width = '100%';
-    timerFrame.style.height = '400px'; // Increased height for the "End Meeting" button
+    timerFrame.style.height = '420px';
     timerFrame.style.border = 'none';
     timerFrame.src = chrome.runtime.getURL('timer.html');
 

@@ -1,8 +1,7 @@
-// timer.js
 let teamMembers = [];
 let activeTimerId = null;
 let timers = {};
-let sortedByPreviousMeeting = false;
+let previousMeetingData = {};
 
 // Listen for messages from the parent window
 window.addEventListener('message', function (event) {
@@ -20,24 +19,42 @@ function initializeTimers() {
     // Load previous meeting data if available
     chrome.storage.local.get(['previousMeetingData'], function (result) {
         if (result.previousMeetingData) {
-            const previousData = JSON.parse(result.previousMeetingData);
-            sortedByPreviousMeeting = true;
+            previousMeetingData = JSON.parse(result.previousMeetingData);
 
             // Sort team members based on previous meeting speaking time
-            const sortedMembers = [...teamMembers];
-
-            sortedMembers.sort((a, b) => {
-                const timeA = previousData[a.name] || 0;
-                const timeB = previousData[b.name] || 0;
-                return timeB - timeA; // Sort by descending order
-            });
-
-            teamMembers = sortedMembers;
+            sortTeamMembers();
+        } else {
+            // If no previous meeting data, sort alphabetically by name
+            teamMembers.sort((a, b) => a.name.localeCompare(b.name));
         }
 
         renderTeamMembers();
         setupEndMeetingButton();
+        setupClearStatsButton();
     });
+}
+
+// Sort team members by previous meeting time or alphabetically if no data
+function sortTeamMembers() {
+    teamMembers.sort((a, b) => {
+        const timeA = previousMeetingData[a.name] || 0;
+        const timeB = previousMeetingData[b.name] || 0;
+
+        if (timeA === 0 && timeB === 0) {
+            // If both have no previous time, sort alphabetically
+            return a.name.localeCompare(b.name);
+        }
+
+        // Sort by speaking time (descending)
+        return timeB - timeA;
+    });
+}
+
+// Format seconds into MM:SS format
+function formatTime(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
 }
 
 // Render team members list
@@ -75,11 +92,30 @@ function renderTeamMembers() {
         nameSpan.textContent = member.name;
         infoDiv.appendChild(nameSpan);
 
+        // Create container for all time information
+        const timeInfoDiv = document.createElement('div');
+        timeInfoDiv.className = 'time-info';
+
+        // Current meeting time
         const timeSpan = document.createElement('span');
         timeSpan.className = 'member-time';
         timeSpan.id = `time-${member.name.replace(/\s+/g, '-')}`;
         timeSpan.textContent = '00:00';
-        infoDiv.appendChild(timeSpan);
+
+        // Previous meeting time (if available)
+        const previousTimeSpan = document.createElement('span');
+        previousTimeSpan.className = 'previous-time';
+
+        if (previousMeetingData[member.name]) {
+            previousTimeSpan.textContent = `Previous: ${formatTime(previousMeetingData[member.name])}`;
+        } else {
+            previousTimeSpan.textContent = 'No previous data';
+            previousTimeSpan.classList.add('no-data');
+        }
+
+        timeInfoDiv.appendChild(timeSpan);
+        timeInfoDiv.appendChild(previousTimeSpan);
+        infoDiv.appendChild(timeInfoDiv);
 
         memberDiv.appendChild(infoDiv);
 
@@ -152,11 +188,7 @@ function pauseTimer(memberName) {
 function updateTimeDisplay(memberName) {
     const timeSpan = document.getElementById(`time-${memberName.replace(/\s+/g, '-')}`);
     const totalSeconds = timers[memberName].totalSeconds;
-
-    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-
-    timeSpan.textContent = `${minutes}:${seconds}`;
+    timeSpan.textContent = formatTime(totalSeconds);
 }
 
 // Set up End Meeting button
@@ -167,24 +199,62 @@ function setupEndMeetingButton() {
             pauseTimer(activeTimerId);
         }
 
-        // Create a record of all times
-        const meetingData = {};
+        // Create an updated record of all times
+        // Important: Preserve previous data for members who didn't speak (0 seconds)
+        const updatedMeetingData = { ...previousMeetingData }; // Start with previous data
+
         Object.keys(timers).forEach(memberName => {
-            meetingData[memberName] = timers[memberName].totalSeconds;
+            const speakingTime = timers[memberName].totalSeconds;
+            // Only update if the member spoke during this meeting
+            if (speakingTime > 0) {
+                updatedMeetingData[memberName] = speakingTime;
+            }
         });
 
         // Save to storage
-        chrome.storage.local.set({ previousMeetingData: JSON.stringify(meetingData) });
+        chrome.storage.local.set({
+            previousMeetingData: JSON.stringify(updatedMeetingData)
+        }, function () {
+            // Update our local copy of the data
+            previousMeetingData = updatedMeetingData;
 
-        // Sort team members by speaking time
-        teamMembers.sort((a, b) => {
-            return timers[b.name].totalSeconds - timers[a.name].totalSeconds;
+            // Sort team members based on updated data
+            sortTeamMembers();
+
+            // Reset all timers
+            Object.keys(timers).forEach(memberName => {
+                timers[memberName].totalSeconds = 0;
+            });
+
+            // Re-render the team members list
+            renderTeamMembers();
+
+            // Show completion message
+            alert('Meeting ended! Team members have been sorted by speaking time for the next meeting.');
         });
+    });
+}
 
-        // Re-render the team members list
-        renderTeamMembers();
+// Set up Clear Statistics button
+function setupClearStatsButton() {
+    document.getElementById('clearStats').addEventListener('click', function () {
+        if (confirm('Are you sure you want to clear all meeting statistics?')) {
+            // Clear data in storage
+            chrome.storage.local.remove(['previousMeetingData'], function () {
+                // Clear local data
+                previousMeetingData = {};
 
-        // Show completion message
-        alert('Meeting ended! Team members have been sorted by speaking time for the next meeting.');
+                // Sort alphabetically
+                teamMembers.sort((a, b) => a.name.localeCompare(b.name));
+
+                // Reset all timers
+                Object.keys(timers).forEach(memberName => {
+                    timers[memberName].totalSeconds = 0;
+                });
+
+                // Re-render the team members list
+                renderTeamMembers();
+            });
+        }
     });
 }
