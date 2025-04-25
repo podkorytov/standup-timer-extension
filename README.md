@@ -13,10 +13,6 @@ A Chrome extension designed to help teams manage their standup meetings more eff
 
 ## Installation
 
-### From Chrome Web Store
-
-*Coming soon*
-
 ### Manual Installation (Developer Mode)
 
 1. Clone this repository or download it as a ZIP file and extract it
